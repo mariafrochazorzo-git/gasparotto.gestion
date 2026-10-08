@@ -1,0 +1,689 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Gasparotto · Reservas</title><style>
+:root{font-family:Inter,Arial,sans-serif;color:#182238;background:#f4f6fa}*{box-sizing:border-box}body{margin:0}header{background:#16243b;color:white;padding:21px max(22px,calc((100% - 1100px)/2))}header h1{font-size:24px;margin:2px 0}header small{color:#becfe6}main{max-width:1100px;margin:24px auto;padding:0 18px}nav{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:22px}.tab{background:white;border:1px solid #d8dfed;color:#33425a}.tab.active{background:#16243b;color:white}.actions{display:flex;flex-wrap:wrap;gap:5px;min-width:220px}.actions button{font-size:11px;padding:6px 8px}button{cursor:pointer;padding:10px 15px;border:0;border-radius:8px;font-weight:650}button:disabled{opacity:.55;cursor:not-allowed}.primary{background:#2156ae;color:white}.danger{background:#9a2a3b;color:white}.plain{background:#eaf0f9;color:#243a5c}.panel{background:white;border:1px solid #dde4ef;border-radius:13px;padding:22px;margin-bottom:16px;box-shadow:0 2px 8px #2134500b}h2{margin:0 0 15px;font-size:21px}h3{margin:16px 0 9px}label{display:block;font-size:13px;color:#4d5870;margin-bottom:5px;font-weight:650}input,select,textarea{border:1px solid #cbd5e4;border-radius:8px;padding:12px;width:100%;font:inherit;background:white;color:#172438}input:focus,select:focus,textarea:focus{outline:2px solid #8eb7f6}textarea{min-height:66px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.grid.two{grid-template-columns:repeat(2,1fr)}.full{grid-column:1/-1}.muted{font-size:13px;color:#67738b}.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.chip{background:#edf4ff;padding:8px 10px;border-radius:9px;font-size:13px}.chip.warning{background:#fff0db;color:#8b430b}.payment-heading{margin-top:12px;padding:14px 16px 3px;background:#f4f7fd;border-top:3px solid #2156ae;border-radius:9px}.payment-heading h3{margin:0 0 6px}#pendienteVista{background:#edf4ff;font-weight:750;color:#174887}.flex{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.hidden{display:none!important}.suggestions{border:1px solid #d6e0f0;border-radius:8px;max-height:220px;overflow:auto;margin-top:5px}.suggestions button{display:block;width:100%;text-align:left;background:#fff;border-bottom:1px solid #eef2f7;border-radius:0;font-weight:450}.suggestions button:hover{background:#eaf2ff}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:11px;text-align:left;border-bottom:1px solid #e8edf5}th{background:#f3f6fa}.scroll{overflow:auto}.warn{color:#a23d12;font-weight:700}.good{color:#0c7457;font-weight:700}.foot{font-size:12px;color:#6b7789;margin:20px 0}#toast{position:fixed;right:16px;bottom:16px;background:#16243b;color:white;padding:12px 18px;border-radius:10px;display:none}#toast.show{display:block}@media(max-width:750px){.grid,.grid.two{grid-template-columns:1fr}header{padding:20px}main{margin:14px auto}.panel{padding:16px}}
+</style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="config.js"></script></head><body><header><small>GASPAROTTO VIAJES · MÓDULO ADMINISTRATIVO</small><h1>Gestión de reservas y proveedores</h1><small>Versión independiente para integrar con la voucherera original</small></header><main><div class="panel" id="loginPanel"><h2>Acceso del personal</h2><p id="connectionStatus" class="muted">Preparando conexión...</p><form id="loginForm" class="grid two"><div><label>Correo electrónico</label><input type="email" id="loginEmail" required></div><div><label>Contraseña</label><input type="password" id="loginPass" required></div><div><button class="primary" type="submit">Ingresar</button></div></form></div><div id="appArea" class="hidden"><div class="flex" style="margin-bottom:10px"><span id="sessionEmail" class="muted"></span><div><button class="plain" id="refreshButton">Actualizar datos</button> <button class="plain" id="logout">Cerrar sesión</button></div></div><nav><button class="tab active" data-tab="crear">Nueva reserva</button><button class="tab" data-tab="reservas">Reservas y pagos</button><button class="tab" data-tab="catalogo">Catálogo de servicios</button></nav>
+<section id="crear" class="section"><div class="panel"><h2>Registrar servicio</h2><p class="muted">Seleccioná el servicio escribiendo una o más letras. Luego aparecen únicamente los proveedores correspondientes.</p><form id="form"><div class="grid"><div><label>Voucher nº (automático, 7 dígitos)</label><input id="voucher" readonly aria-label="Número de voucher automático"><small class="muted">El número global se asigna en Supabase al guardar.</small></div><div><label>Pasajero principal *</label><input id="pasajero" required></div><div><label>Celular del cliente *</label><input id="celular" type="tel" required placeholder="Ej.: +54 9 11 1234-5678"></div><div><label>Documento del cliente *</label><input id="documento" required placeholder="DNI / RG / Pasaporte"></div><div><label>Nacionalidad *</label><input id="nacionalidad" required placeholder="Ej.: Brasileña"></div><div><label>Fecha del servicio *</label><input type="date" id="fecha" required></div><div class="full"><label>Buscar servicio * (escribí una o dos letras)</label><input id="servicio" autocomplete="off" placeholder="Ej. CI, TIG, TANGO..."><div id="suggest" class="suggestions hidden"></div></div><div><label>Proveedor *</label><select id="proveedor" required><option value="">Elegí primero el servicio</option></select></div><div><label>Pasajeros adultos *</label><input id="adultos" type="number" min="0" value="1" required></div><div><label>Pasajeros menores *</label><input id="menores" type="number" min="0" value="0" required></div><div><label>Edad de los menores (opcional)</label><input id="edadesMenores" placeholder="Ej.: 3, 7"></div><div><label>Estado del proveedor</label><select id="estado"><option>Pendiente</option><option>Confirmada</option><option>Enviada</option><option>Cancelada</option></select></div><div class="full payment-heading"><h3>Información de pago</h3><p class="muted">Registrá lo que ya pagó el cliente y quién debe cobrar el saldo. Todos los importes de esta reserva utilizan la moneda seleccionada.</p></div><div><label>Valor total del servicio</label><input id="total" type="number" min="0" step="0.01" value="0"></div><div><label>Moneda de los importes</label><select id="moneda"><option>USD</option><option>ARS</option><option>BRL</option><option>EUR</option><option>CLP</option><option>Prex</option><option>Otro</option></select></div><div><label>Valor pagado</label><input id="abonado" type="number" min="0" step="0.01" value="0"></div><div><label>Valor pendiente (automático)</label><input id="pendienteVista" type="text" value="USD 0.00" readonly aria-label="Valor pendiente calculado"><small class="muted">Total menos valor pagado</small></div><div><label>Forma de pago recibido</label><select id="forma_pago"><option value="">Seleccionar forma de pago</option><option>Efectivo</option><option>Transferencia</option><option>Tarjeta de crédito</option><option>Tarjeta de débito</option><option>Mercado Pago</option><option>PIX</option></select></div><div><label>¿Dónde se cobra el valor pendiente?</label><select id="cobro"><option value="agencia">En agencia</option><option value="puerta">En puerta del servicio</option><option value="transferencia">Por transferencia</option></select></div><div><label>Responsable por el cobro *</label><input id="responsable" list="responsablesCobro" placeholder="Agencia, proveedor o persona" required><datalist id="responsablesCobro"><option value="Agencia Gasparotto"><option value="Proveedor"><option value="Vendedor"><option value="Otro"></datalist><small class="muted">Indicá quién debe recibir el valor pendiente.</small></div><div><label>Referencia de confirmación (opcional)</label><input id="referencia" placeholder="Ej.: código PT-4587"><small class="muted">Número o código que el proveedor entrega al confirmar la reserva. No es el número de voucher.</small></div><div class="full"><label>Observaciones</label><textarea id="notas" placeholder="Detalles adicionales; obligatorio para OTRO"></textarea></div></div><p id="saldo" class="chip warning">Saldo pendiente: USD 0</p><div class="flex"><button class="primary" id="saveButton" type="submit">Guardar reserva en Supabase</button><span class="muted">Se guarda centralmente en Supabase. El número no se elige manualmente.</span></div></form></div></section>
+<section id="reservas" class="section hidden"><div class="panel"><div class="flex"><h2>Control de reservas</h2><div><button class="plain" id="csv">Exportar CSV para Excel</button> <button class="plain" id="jsonexport">Respaldo JSON</button></div></div><div id="stats" class="chips"></div><div class="grid two"><div><label>Buscar por voucher, pasajero, servicio o proveedor</label><input id="busca" placeholder="Buscar..."></div><div><label>Filtrar por estado</label><select id="filtro"><option value="">Todos</option><option>Pendiente</option><option>Confirmada</option><option>Enviada</option><option>Cancelada</option></select></div></div><div class="scroll"><table><thead><tr><th>Voucher / pasajero</th><th>Fecha / servicio</th><th>Proveedor</th><th>Confirmación</th><th>Saldo</th><th>Acciones</th></tr></thead><tbody id="tabla"></tbody></table></div></div></section>
+<section id="catalogo" class="section hidden"><div class="panel"><div class="flex"><h2>Servicios y proveedores</h2><span id="count" class="muted"></span></div><div class="grid two"><div><label>Buscar servicio</label><input id="catbusca" placeholder="Escribí letras del nombre"></div><div><label>Mostrar proveedor</label><select id="catprov"></select></div></div><p class="muted">El catálogo se consulta directamente desde las tablas de Supabase. Solo ADMIN puede modificarlo.</p><div class="scroll"><table><thead><tr><th>Servicio (orden alfabético)</th><th>Proveedores disponibles</th><th></th></tr></thead><tbody id="cattabla"></tbody></table></div><h3>Agregar servicio</h3><div class="grid two"><div><label>Nombre del servicio</label><input id="nuevoNombre" placeholder="NUEVO SERVICIO"></div><div><label>Proveedores (separados por comas)</label><input id="nuevosProveedores" placeholder="SUMMA, DESSUR"></div></div><p><button class="primary" id="agregar">Agregar al catálogo</button> <button class="plain" id="reset">Restaurar catálogo original</button></p></div></section><p class="foot">WhatsApp: se abre el mensaje preparado, el empleado confirma el envío. Excel: CSV descargable o conexión de Power Query desde la base central. El PDF del cliente nunca incluye el proveedor.</p></div></main><div id="toast" role="status"></div>
+<script>const ORIGINAL=[
+  {
+    "nombre": "ALQUILER LOCACIÓN",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "ALQUILER VEHICULO",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "AQUAFAN PRIVADO",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "AQUAFAN REGULAR",
+    "proveedores": [
+      "SUMMA"
+    ]
+  },
+  {
+    "nombre": "BARILOCHE - CERRO CATEDRAL",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "BARILOCHE - CERRO CATEDRAL DIA DE NIEVE",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "BARILOCHE - CERRO TRONADOR",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "BARILOCHE - CIRCUITO CHICO",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "BARILOCHE - CIRCUITO GRANDE",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "BARILOCHE - EL BOLSON Y LAGO PUELO",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "BARILOCHE - ISLA VICTORIA Y BOSQUES",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "BARILOCHE - PUERTO BLEST Y CASCADA",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "BARILOCHE - SAN MARTIN + 7 LAGOS",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "BARILOCHE - SKI NORDICO",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "BARILOCHE - TRANSFER",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "BUS/PASAJES",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "CAFE LOS ANGELITOS - CENA SHOW CON TRASLADOS",
+    "proveedores": [
+      "CAFE LOS ANGELITOS"
+    ]
+  },
+  {
+    "nombre": "CALAFATE - BIG ICE",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "CALAFATE - ESTANCIA 25 MAYO",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "CALAFATE - GLACIAR PERITO MORENO",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "CALAFATE - GLACIARES GOURMET",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "CALAFATE - MINITREKKING",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "CALAFATE - SAFARI NAUTICO",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "CALAFATE - TODO GLACIARES",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "CALAFATE - TORRES DEL PAINE",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "CALAFATE - TRANSFER",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "CAMPANOPOLIS PRIVADO",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "CAMPANOPOLIS REGULAR",
+    "proveedores": [
+      "DESSUR",
+      "SUMMA"
+    ]
+  },
+  {
+    "nombre": "CASA GAMBOA",
+    "proveedores": [
+      "SUMMA"
+    ]
+  },
+  {
+    "nombre": "CATULO - CENA SHOW",
+    "proveedores": [
+      "CATULO"
+    ]
+  },
+  {
+    "nombre": "CATULO - SOLO SHOW",
+    "proveedores": [
+      "CATULO"
+    ]
+  },
+  {
+    "nombre": "CITY TOUR FOTOGRAFICO",
+    "proveedores": [
+      "KARINNE"
+    ]
+  },
+  {
+    "nombre": "CITY TOUR PREMIUM + ALMUERZO",
+    "proveedores": [
+      "SUMMA"
+    ]
+  },
+  {
+    "nombre": "CITY TOUR PRIVADO",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "CITY TOUR REGULAR",
+    "proveedores": [
+      "DESSUR",
+      "SUMMA"
+    ]
+  },
+  {
+    "nombre": "CITY TOUR REGULAR - PICK UP PALERMO",
+    "proveedores": [
+      "SUMMA"
+    ]
+  },
+  {
+    "nombre": "COLONIA DAYTOUR CLASICO",
+    "proveedores": [
+      "COLONIA",
+      "BUQUEBUS",
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "COLONIA DAYTOUR DIA DE CAMPO",
+    "proveedores": [
+      "COLONIA",
+      "BUQUEBUS",
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "COLONIA DAYTOUR IMPERDIBLE",
+    "proveedores": [
+      "COLONIA",
+      "BUQUEBUS",
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "COLONIA DAYTOUR MEDIO DIA",
+    "proveedores": [
+      "COLONIA",
+      "BUQUEBUS",
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "COLONIA DAYTOUR PREMIUM",
+    "proveedores": [
+      "COLONIA",
+      "BUQUEBUS",
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "COLONIA DAYTOUR WINE EXPERIENCE",
+    "proveedores": [
+      "COLONIA",
+      "BUQUEBUS",
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "COLONIA HISTORICO",
+    "proveedores": [
+      "BUQUEBUS",
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "COLONIA PLAZA DE LOS TOROS",
+    "proveedores": [
+      "BUQUEBUS",
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "COLONIA/PASAJES",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "ESTANCIA SANTA SUSANA",
+    "proveedores": [
+      "SUMMA",
+      "DESSUR"
+    ]
+  },
+  {
+    "nombre": "FIESTA GAUCHA",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "FIESTA GAUCHA REGULAR",
+    "proveedores": [
+      "SUMMA"
+    ]
+  },
+  {
+    "nombre": "HOMERO MANZI - CENA SHOW PLATEA",
+    "proveedores": [
+      "YAMILA"
+    ]
+  },
+  {
+    "nombre": "HOTEL",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "MADERO TANGO - CENA SHOW PLATEA",
+    "proveedores": [
+      "MADERO"
+    ]
+  },
+  {
+    "nombre": "MADERO TANGO - EJECUTIVO",
+    "proveedores": [
+      "MADERO"
+    ]
+  },
+  {
+    "nombre": "MADERO TANGO - LAST MINUTE",
+    "proveedores": [
+      "MADERO"
+    ]
+  },
+  {
+    "nombre": "MADERO TANGO - SHOW BLACK",
+    "proveedores": [
+      "MADERO"
+    ]
+  },
+  {
+    "nombre": "MADERO TANGO - SOLO SHOW",
+    "proveedores": [
+      "MADERO"
+    ]
+  },
+  {
+    "nombre": "MADERO TANGO - VIP",
+    "proveedores": [
+      "MADERO"
+    ]
+  },
+  {
+    "nombre": "MENDOZA - BODEGA",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "MENDOZA - EXCURSIÓN",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "MENDOZA - TRANSLADO",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "MICHELANGELO - CENA SHOW CON TRASLADOS",
+    "proveedores": [
+      "MICHELANGELO"
+    ]
+  },
+  {
+    "nombre": "MICHELANGELO - CENA SHOW CON TRASLADOS PALERMO",
+    "proveedores": [
+      "MICHELANGELO"
+    ]
+  },
+  {
+    "nombre": "MICHELANGELO - CENA SHOW SIN TRASLADOS",
+    "proveedores": [
+      "MICHELANGELO"
+    ]
+  },
+  {
+    "nombre": "MONTEVIDEO - CITY TOUR + ALMUERZO",
+    "proveedores": [
+      "BUQUEBUS",
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "MONTEVIDEO EXPLORA POCITOS",
+    "proveedores": [
+      "BUQUEBUS",
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "MONTEVIDEO HISTORICO",
+    "proveedores": [
+      "BUQUEBUS",
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "MONTEVIDEO SHOPPING DAY",
+    "proveedores": [
+      "BUQUEBUS",
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "MUNDO MARINO",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "OTRO",
+    "proveedores": [
+      "ACLARAR EN OBSERVACIONES"
+    ]
+  },
+  {
+    "nombre": "PALACIO TANGO - CENA SHOW PLATEA",
+    "proveedores": [
+      "PALACIO"
+    ]
+  },
+  {
+    "nombre": "PALACIO TANGO - SOLO SHOW",
+    "proveedores": [
+      "PALACIO"
+    ]
+  },
+  {
+    "nombre": "PALACIO TANGO - SOLO SHOW VIP",
+    "proveedores": [
+      "PALACIO"
+    ]
+  },
+  {
+    "nombre": "PALACIO TANGO - VIP",
+    "proveedores": [
+      "PALACIO"
+    ]
+  },
+  {
+    "nombre": "PARQUE DE LA COSTA PRIVADO + PASAPORTE ORO",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "PARQUE DE LA COSTA REGULAR + PASAPORTE ORO",
+    "proveedores": [
+      "SUMMA"
+    ]
+  },
+  {
+    "nombre": "ROJO TANGO - CENA SHOW CON TRASLADOS",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "SEÑOR TANGO - CENA SHOW CON TRASLADOS",
+    "proveedores": [
+      "TIP"
+    ]
+  },
+  {
+    "nombre": "SEÑOR TANGO - CENA SHOW SIN TRASLADOS",
+    "proveedores": [
+      "TIP"
+    ]
+  },
+  {
+    "nombre": "SEÑOR TANGO - SOLO SHOW",
+    "proveedores": [
+      "TIP"
+    ]
+  },
+  {
+    "nombre": "SUNSET + OPENBAR",
+    "proveedores": [
+      "SUMMA"
+    ]
+  },
+  {
+    "nombre": "TANGO PORTEÑO - CENA SHOW PLATEA",
+    "proveedores": [
+      "MAGIC"
+    ]
+  },
+  {
+    "nombre": "TANGO PORTEÑO - CENA SHOW VIP",
+    "proveedores": [
+      "MAGIC"
+    ]
+  },
+  {
+    "nombre": "TANGO PORTEÑO - EJECUTIVO",
+    "proveedores": [
+      "MAGIC"
+    ]
+  },
+  {
+    "nombre": "TANGO PORTEÑO - SOLO SHOW",
+    "proveedores": [
+      "MAGIC"
+    ]
+  },
+  {
+    "nombre": "TEMAIKEN PRIVADO",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "TEMAIKEN REGULAR",
+    "proveedores": [
+      "SUMMA"
+    ]
+  },
+  {
+    "nombre": "TIGRE CLASICO + ALMUERZO",
+    "proveedores": [
+      "SUMMA"
+    ]
+  },
+  {
+    "nombre": "TIGRE CLASICO - PICK UP PALERMO",
+    "proveedores": [
+      "SUMMA"
+    ]
+  },
+  {
+    "nombre": "TIGRE CLASICO PRIVADO",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "TIGRE CLASICO REGULAR",
+    "proveedores": [
+      "DESSUR",
+      "SUMMA"
+    ]
+  },
+  {
+    "nombre": "TIGRE PREMIUM",
+    "proveedores": [
+      "SUMMA"
+    ]
+  },
+  {
+    "nombre": "TOUR DE ESTADIOS PRIVADO",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "TOUR DE ESTADIOS REGULAR",
+    "proveedores": [
+      "SUMMA"
+    ]
+  },
+  {
+    "nombre": "USHUAIA - NAVEGACION BEAGLE",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "USHUAIA - PARQUE NACIONAL TIERRA DE FUEGO",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "USHUAIA - PINGUINERA",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "USHUAIA - TRANSFER",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "USHUAIA - TREKKING LAGUNA ESMERALDA",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "USHUAIA - TREN DEL FIN DEL MUNDO",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  },
+  {
+    "nombre": "VUELOS/PASAJES",
+    "proveedores": [
+      "COTIZACIONES"
+    ]
+  }
+];
+let catalogo=[], servicios=[], proveedores=[], relaciones=[], reservas=[],selected='', editing=null, client=null,user=null,busy=false, perfil=null;
+const $=id=>document.getElementById(id);
+const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim();
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sorted=()=>catalogo.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+const currency=r=>`${r.moneda} ${Math.max(0,Number(r.total)-Number(r.abonado)).toFixed(2)}`;
+function toast(msg){$('toast').textContent=msg;$('toast').className='show';setTimeout(()=>$('toast').className='',5500)}
+function showNextVoucher(){$('voucher').value=editing?$('voucher').value:'Se asigna al guardar'}
+function authGuard(){if(!user||!perfil?.activo){toast('Acceso restringido a empleados activos.');return false}return true}
+async function initialize(){const c=window.GASPAROTTO_CONFIG||{};
+ if(!c.supabaseUrl||c.supabaseUrl.startsWith('PEGAR_')||!c.supabaseKey||c.supabaseKey.startsWith('PEGAR_')){$('connectionStatus').textContent='Configurá URL y Publishable Key en config.js';return}
+ if(!window.supabase){$('connectionStatus').textContent='No se cargó la biblioteca Supabase';return}
+ client=window.supabase.createClient(c.supabaseUrl,c.supabaseKey);
+ const {data:{session}}=await client.auth.getSession();user=session?.user||null;
+ await syncUser();
+ client.auth.onAuthStateChange((_event,session)=>{user=session?.user||null;setTimeout(()=>syncUser().catch(e=>toast(e.message)),0)});
+}
+async function syncUser(){perfil=null;if(user){const q=await client.from('empleados').select('id,nombre,rol,activo').eq('id',user.id).maybeSingle();if(q.error)toast(q.error.message);else perfil=q.data;}updateAuth();if(perfil?.activo)await refresh()}
+function updateAuth(){let yes=!!user&&!!perfil?.activo;$('loginPanel').classList.toggle('hidden',yes);$('appArea').classList.toggle('hidden',!yes);$('sessionEmail').textContent=(user?.email||'')+' · '+(perfil?.rol||'');$('connectionStatus').textContent=user&&!yes?'Esta cuenta no está habilitada como empleado activo':'Ingresá con tu cuenta de Gasparotto';$('agregar').disabled=perfil?.rol!=='ADMIN';$('reset').disabled=true;}
+$('loginForm').onsubmit=async e=>{e.preventDefault();if(!client)return toast('Primero configurá Supabase');let {error}=await client.auth.signInWithPassword({email:$('loginEmail').value.trim(),password:$('loginPass').value});if(error)toast(error.message)};
+$('logout').onclick=()=>client?.auth.signOut();
+async function refresh(){if(!authGuard())return;
+ const [s,p,sp,r]=await Promise.all([
+ client.from('servicios').select('id,nombre,activo').order('nombre'),
+ client.from('proveedores').select('id,nombre,telefono,activo').order('nombre'),
+ client.from('servicio_proveedores').select('servicio_id,proveedor_id'),
+ client.from('reservas').select('id,voucher_id,servicio_id,proveedor_id,fecha_servicio,hora_servicio,estado,referencia_confirmacion,observaciones_internas,created_at,vouchers(id,numero,pasajero,documento,nacionalidad,celular,adultos,menores,edades_menores,vendedor,observaciones,estado),pagos(id,moneda,valor_total,valor_pagado,valor_pendiente,forma_pago,lugar_cobro,responsable_cobro,estado_pago,observaciones)').order('created_at',{ascending:false}).limit(3000)
+ ]);for(const q of [s,p,sp,r])if(q.error)throw q.error;
+ servicios=s.data;proveedores=p.data;relaciones=sp.data;
+ catalogo=servicios.filter(x=>x.activo).map(x=>({id:x.id,nombre:x.nombre,proveedores:relaciones.filter(z=>z.servicio_id===x.id).map(z=>proveedores.find(p=>p.id===z.proveedor_id)).filter(z=>z?.activo).map(z=>z.nombre)}));
+ reservas=r.data.map(fromDb);renderReservations();renderCatalog();showNextVoucher();
+}
+function fromDb(r){const v=r.vouchers||{},p=Array.isArray(r.pagos)?r.pagos[0]||{}:r.pagos||{};
+ const srv=servicios.find(x=>x.id===r.servicio_id),prov=proveedores.find(x=>x.id===r.proveedor_id);
+ return {id:String(r.id),voucher_id:r.voucher_id,voucher:v.numero||String(v.id).padStart(7,'0'),pasajero:v.pasajero,celular:v.celular,documento:v.documento,nacionalidad:v.nacionalidad,adultos:v.adultos,menores:v.menores,edadesMenores:v.edades_menores,fecha:r.fecha_servicio,servicio:srv?.nombre||'',proveedor:prov?.nombre||'',estado:({PENDIENTE:'Pendiente',ENVIADA:'Enviada',CONFIRMADA:'Confirmada',CANCELADA:'Cancelada'})[r.estado]||r.estado,total:Number(p.valor_total||0),abonado:Number(p.valor_pagado||0),moneda:p.moneda||'USD',forma_pago:p.forma_pago||'',cobro:({PUERTA:'puerta',AGENCIA:'agencia',TRANSFERENCIA:'transferencia',OTRO:'otro'})[p.lugar_cobro]||'agencia',responsable:p.responsable_cobro||'',referencia:r.referencia_confirmacion||'',notas:r.observaciones_internas||'',updated:r.created_at};}
+function choose(s){selected=s.nombre;$('servicio').value=selected;$('suggest').classList.add('hidden');$('proveedor').innerHTML='<option value="">Elegir proveedor</option>'+s.proveedores.slice().sort((a,b)=>a.localeCompare(b,'es')).map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('');if(s.proveedores.length===1)$('proveedor').value=s.proveedores[0]}
+function suggest(){const q=norm($('servicio').value);if(norm(selected)!==q){selected='';$('proveedor').innerHTML='<option value="">Elegí primero el servicio</option>'}const found=sorted().filter(s=>norm(s.nombre).includes(q)).slice(0,35);$('suggest').replaceChildren();if(!q){$('suggest').classList.add('hidden');return}found.forEach(s=>{const b=document.createElement('button');b.type='button';b.textContent=s.nombre;b.onclick=()=>choose(s);$('suggest').appendChild(b)});if(!found.length){const el=document.createElement('div');el.className='muted';el.style.padding='12px';el.textContent='Sin coincidencias';$('suggest').append(el)}$('suggest').classList.remove('hidden')}
+$('servicio').addEventListener('input',suggest);$('servicio').addEventListener('keydown',e=>{if(e.key==='Enter'&&!$('suggest').classList.contains('hidden')){e.preventDefault();$('suggest').querySelector('button')?.click()}});
+function balance(){let t=Number($('total').value),a=Number($('abonado').value),sal=Math.max(0,t-a);$('pendienteVista').value=`${$('moneda').value} ${sal.toFixed(2)}`;$('saldo').textContent=`Saldo pendiente: ${$('moneda').value} ${sal.toFixed(2)} ${$('cobro').value==='puerta'?'· PAGO EN PUERTA':''}`;return sal}
+['total','abonado','moneda','cobro'].forEach(id=>$(id).addEventListener('input',balance));
+function validatePeople(){let a=Number($('adultos').value),m=Number($('menores').value);if(!Number.isInteger(a)||!Number.isInteger(m)||a<0||m<0||a+m<1){toast('Indicá al menos un pasajero');return false}return true}
+function dataForm(){return {pasajero:$('pasajero').value.trim(),celular:$('celular').value.trim(),documento:$('documento').value.trim(),nacionalidad:$('nacionalidad').value.trim(),adultos:Number($('adultos').value),menores:Number($('menores').value),edadesMenores:$('edadesMenores').value.trim(),fecha:$('fecha').value,servicio:selected,proveedor:$('proveedor').value,estado:$('estado').value,total:Number($('total').value),abonado:Number($('abonado').value),moneda:$('moneda').value,forma_pago:$('forma_pago').value,cobro:$('cobro').value,responsable:$('responsable').value.trim(),referencia:$('referencia').value.trim(),notas:$('notas').value.trim()}}
+$('form').onsubmit=async e=>{e.preventDefault();if(!authGuard()||busy)return;const entry=catalogo.find(s=>s.nombre===selected);if(!entry)return toast('Elegí un servicio del buscador');if(!entry.proveedores.includes($('proveedor').value))return toast('Proveedor no válido');const r=dataForm();if(!validatePeople()||r.abonado<0||r.total<0||r.abonado>r.total)return toast('Revisá pasajeros e importes');if(selected==='OTRO'&&!r.notas)return toast('Aclará OTRO en observaciones');busy=true;$('saveButton').disabled=true;try{const {data,error}=await client.rpc('guardar_reserva_gasparotto',{p_data:r,p_reserva_id:editing?Number(editing):null});if(error)throw error;toast('Reserva guardada: voucher Nº '+data.numero);editing=null;resetForm();await refresh();selectTab('reservas')}catch(err){toast('Error al guardar: '+err.message)}finally{busy=false;$('saveButton').disabled=false}};
+function resetForm(){$('form').reset();selected='';editing=null;$('proveedor').innerHTML='<option value="">Elegí primero el servicio</option>';showNextVoucher();balance()}
+function selectTab(tab){document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));document.querySelectorAll('.section').forEach(x=>x.classList.toggle('hidden',x.id!==tab));if(tab==='reservas')renderReservations();if(tab==='catalogo')renderCatalog()}
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>selectTab(b.dataset.tab));
+function editReservation(id){let r=reservas.find(x=>x.id===String(id));if(!r)return;editing=String(id);selectTab('crear');$('voucher').value=r.voucher;['pasajero','celular','documento','nacionalidad','adultos','menores','fecha','total','abonado','moneda','forma_pago','cobro','responsable','referencia','notas'].forEach(x=>$(x).value=r[x]??'');$('estado').value=r.estado;$('edadesMenores').value=r.edadesMenores||'';let srv=catalogo.find(s=>s.nombre===r.servicio);if(srv){choose(srv);$('proveedor').value=r.proveedor}else{$('servicio').value=r.servicio;selected=''}balance();window.scrollTo(0,0)}
+function providerMsg(r){return `GASPAROTTO VIAJES — SOLICITUD DE RESERVA\nVoucher: ${r.voucher}\nServicio: ${r.servicio}\nFecha: ${r.fecha}\nPasajero: ${r.pasajero}\nAdultos: ${r.adultos} | Menores: ${r.menores}${r.edadesMenores?' | Edades: '+r.edadesMenores:''}\n${r.cobro==='puerta'&&Number(r.total)>Number(r.abonado)?`ATENCIÓN - COBRAR EN PUERTA: ${currency(r)}\nResponsable: ${r.responsable}\n`:''}${r.notas?'Observaciones: '+r.notas+'\n':''}Por favor confirmar disponibilidad y enviar código de confirmación.`.replaceAll('\\n','\n')}
+function clientMsg(r){return `Gasparotto Viajes — Voucher ${r.voucher}\nHola ${r.pasajero}, te enviamos tu reserva:\n${r.servicio}\nFecha: ${r.fecha}\nPasajeros: ${r.adultos} adultos, ${r.menores} menores\nImporte total: ${r.moneda} ${r.total}\nAbonado: ${r.moneda} ${r.abonado}\nSaldo: ${currency(r)}\nAdjuntamos el PDF del voucher por separado.`.replaceAll('\\n','\n')}
+function whats(text,number=''){let digits=String(number).replace(/\D/g,'');window.open(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`,'_blank','noopener,noreferrer')}
+function pdf(r){if(!window.jspdf?.jsPDF)return toast('No se cargó el generador PDF; revisá conexión a internet');let doc=new window.jspdf.jsPDF();doc.setFillColor(22,36,59);doc.rect(0,0,210,37,'F');doc.setFont('helvetica','bold');doc.setFontSize(20);doc.setTextColor(255);doc.text('GASPAROTTO VIAJES',12,18);doc.setFontSize(10);doc.text('COMPROBANTE DE SERVICIO',12,27);doc.setTextColor(28,40,60);doc.setFontSize(17);doc.text('VOUCHER Nº '+r.voucher,12,49);let y=65;const row=(label,val)=>{doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text(label,12,y);doc.setFont('helvetica','normal');let lines=doc.splitTextToSize(String(val??''),123);doc.text(lines,72,y);y+=Math.max(9,lines.length*6+3)};row('Pasajero',r.pasajero);row('Documento',r.documento);row('Nacionalidad',r.nacionalidad);row('Celular',r.celular);row('Servicio',r.servicio);row('Fecha',r.fecha);row('Adultos / Menores',`${r.adultos} / ${r.menores}`);if(r.edadesMenores)row('Edad de menores',r.edadesMenores);row('Total',`${r.moneda} ${r.total}`);row('Valor pagado',`${r.moneda} ${r.abonado}`);row('Valor pendiente',currency(r));if(Number(r.total)>Number(r.abonado))row('Lugar de pago',r.cobro==='puerta'?'En puerta':r.cobro==='agencia'?'En agencia':'Transferencia');doc.setFontSize(9);doc.setTextColor(90);doc.text('Gasparotto Viajes · Presentar este voucher al realizar el servicio.',12,280);doc.save(`Gasparotto_Voucher_${r.voucher}.pdf`)}
+function renderReservations(){let term=norm($('busca').value),state=$('filtro').value;let rows=reservas.filter(r=>(!state||r.estado===state)&&norm([r.voucher,r.pasajero,r.servicio,r.proveedor].join(' ')).includes(term));let paidDoor=reservas.filter(r=>r.cobro==='puerta'&&r.total>r.abonado);$('stats').innerHTML=`<span class="chip">Total: ${reservas.length}</span><span class="chip warning">Sin confirmar: ${reservas.filter(r=>r.estado==='Pendiente').length}</span><span class="chip warning">Pagos en puerta: ${paidDoor.length}</span>`;$('tabla').innerHTML=rows.map(r=>`<tr><td><b>${esc(r.voucher)}</b><br>${esc(r.pasajero)}</td><td>${esc(r.fecha)}<br>${esc(r.servicio)}</td><td>${esc(r.proveedor)}</td><td>${esc(r.estado)}<br>${esc(r.referencia)}</td><td>${esc(currency(r))}${r.cobro==='puerta'&&r.total>r.abonado?'<br><strong class="warn">EN PUERTA</strong>':''}</td><td><div class="actions"><button class="plain" data-act="edit" data-id="${r.id}">Editar</button><button class="plain" data-act="provider" data-id="${r.id}">WhatsApp proveedor</button><button class="plain" data-act="client" data-id="${r.id}">WhatsApp cliente</button><button class="primary" data-act="pdf" data-id="${r.id}">PDF cliente</button></div></td></tr>`).join('')||'<tr><td colspan="6">No hay reservas</td></tr>'}
+$('tabla').onclick=e=>{let b=e.target.closest('button[data-act]');if(!b)return;let r=reservas.find(x=>x.id===b.dataset.id);if(!r)return;let act=b.dataset.act;if(act==='edit')editReservation(r.id);if(act==='provider')whats(providerMsg(r));if(act==='client')whats(clientMsg(r),r.celular);if(act==='pdf')pdf(r)};
+['busca','filtro'].forEach(x=>$(x).addEventListener('input',renderReservations));
+function csvVal(v){let s=String(v??'');if(/^[=+@\-\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
+function download(name,body,type){let blob=new Blob([body],{type});let u=URL.createObjectURL(blob);let a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
+$('csv').onclick=()=>{let keys=['voucher','pasajero','celular','documento','nacionalidad','fecha','servicio','proveedor','adultos','menores','edadesMenores','estado','total','abonado','moneda','forma_pago','cobro','responsable','referencia','notas','updated'];let data='\ufeff'+keys.map(csvVal).join(';')+'\r\n'+reservas.map(r=>keys.map(k=>csvVal(r[k])).join(';')).join('\r\n');download('gasparotto_reservas.csv',data,'text/csv;charset=utf-8')};
+$('jsonexport').onclick=()=>download('gasparotto_respaldo.json',JSON.stringify(reservas,null,2),'application/json');
+function renderCatalog(){let q=norm($('catbusca').value),p=$('catprov').value;let providers=[...new Set(catalogo.flatMap(x=>x.proveedores))].sort((a,b)=>a.localeCompare(b,'es'));$('catprov').innerHTML='<option value="">Todos los proveedores</option>'+providers.map(x=>`<option value="${esc(x)}" ${x===p?'selected':''}>${esc(x)}</option>`).join('');const arr=sorted().filter(s=>norm(s.nombre).includes(q)&&(!p||s.proveedores.includes(p)));$('count').textContent=`${catalogo.length} servicios`; $('cattabla').innerHTML=arr.map(s=>`<tr><td>${esc(s.nombre)}</td><td>${esc(s.proveedores.join(', '))}</td><td>${perfil?.rol==='ADMIN'?`<button class="plain" data-del="${s.id}">Desactivar</button>`:''}</td></tr>`).join('')}
+$('agregar').onclick=async()=>{if(perfil?.rol!=='ADMIN')return toast('Solo administrador');let nombre=norm($('nuevoNombre').value),provs=$('nuevosProveedores').value.split(',').map(norm).filter(Boolean);if(!nombre||!provs.length)return toast('Completá servicio y proveedor');if(catalogo.some(x=>norm(x.nombre)===nombre))return toast('Ya existe ese servicio');const ps=provs.map(x=>proveedores.find(p=>norm(p.nombre)===x)).filter(Boolean);if(ps.length!==provs.length)return toast('Usá nombres de proveedores ya existentes');try{let sr=await client.from('servicios').insert({nombre}).select('id').single();if(sr.error)throw sr.error;let rel=await client.from('servicio_proveedores').insert(ps.map(p=>({servicio_id:sr.data.id,proveedor_id:p.id})));if(rel.error)throw rel.error;$('nuevoNombre').value='';$('nuevosProveedores').value='';await refresh();toast('Servicio agregado')}catch(e){toast('Error al agregar: '+e.message)}};
+$('cattabla').onclick=async e=>{let b=e.target.closest('button[data-del]');if(!b||perfil?.rol!=='ADMIN')return;if(!confirm('¿Desactivar este servicio del catálogo?'))return;let x=await client.from('servicios').update({activo:false}).eq('id',Number(b.dataset.del));if(x.error)return toast(x.error.message);await refresh()};
+$('reset').onclick=()=>toast('El catálogo se administra desde Supabase; no se restaura desde el navegador.');
+['catbusca','catprov'].forEach(x=>$(x).addEventListener('input',renderCatalog));$('refreshButton').onclick=()=>refresh().catch(e=>toast(e.message));
+showNextVoucher();balance();renderReservations();initialize().catch(e=>toast(e.message));
+</script></body></html>
